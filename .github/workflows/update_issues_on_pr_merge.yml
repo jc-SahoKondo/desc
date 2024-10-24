@@ -1,0 +1,222 @@
+# PRがマージされたとき以下の処理を行う。
+# 【リリースごとブランチの場合】
+# - PRと関連するIssueのラベルを、"ready for review"から"fixed"に変更
+# - 関連するIssue本文から、 "Fixed: #" に続く親Issueを取得
+# - 親Issueの本文に、関連するIssueへのリンクを追加
+# 【developの場合】
+# - PRと関連するIssueのラベルを、"fixed"から"dev"に変更
+# 【releaseの場合】
+# - PRと関連するIssueのラベルを、"dev"から"stg"に変更
+# 【masterの場合】
+# - PRと関連するIssueのラベルを、"stg"から"prd"に変更
+
+name: PRマージ時、Issueを更新する
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  update-issue:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.merged == true }}
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: 関連するIssueを更新する
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const prBody = pr.body;
+            const prNumber = pr.number;
+            const prTitle = pr.title;
+            const prBase = pr.base.ref;
+            const prMilestone = pr.milestone;
+            
+            if (!prBody) {
+              console.error("PR body is empty.");
+              return;
+            }
+            
+            // 特定のマイルストーンとラベルが付与されたissueを取得する
+            const fetchIssuesByMilestoneAndLabel = async (milestone, labels) => {
+              let targetIssues = [];
+              try {
+                for (const label of labels) {
+                  const issue = await github.paginate(github.rest.issues.listForRepo, {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    milestone: milestone.number,
+                    state: "open",
+                    labels: label
+                  });
+                  targetIssues = targetIssues.concat(issue);
+                }
+                return targetIssues;
+              } catch (error) {
+                console.error(`Failed to fetch issue with ${milestone.title} and ${labels.join(",")}:`, error);
+                return;
+              }
+            }
+            
+            // bodyから、matchStrにマッチするIssueの情報を取得
+            const fetchFixedIssueData = async (body, matchStr) => {
+              const fixedIssueMatch = body.match(matchStr);
+              if (!fixedIssueMatch) {
+                console.log("No issue found in body.");
+                return;
+              }
+              const fixedIssueNumber = fixedIssueMatch[1];
+            
+              try {
+                const fixedIssueData = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(fixedIssueNumber, 10),
+                });
+                return fixedIssueData;
+              } catch (error) {
+                console.error(`Failed to fetch issue #${fixedIssueNumber}:`, error);
+                return;
+              }
+            }
+            
+            // Issueのラベルを更新
+            const updateIssueLabels = async (fixedIssueDatas, removeLabel, addLabel) => {
+              for (const fixedIssueData of fixedIssueDatas) {
+                const updatedLabels = fixedIssueData.labels.filter(label => label.name !== removeLabel).map(label => label.name);
+                updatedLabels.push(addLabel);
+                console.log("updatedLabels: ", updatedLabels);
+            
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(fixedIssueData.number, 10),
+                  labels: Array.from(updatedLabels),
+                });
+              }
+            }
+            
+            
+            // 【DEV環境】（マージ先がdevelopブランチの場合）
+            if (prBase === "develop") {
+              console.log("developブランチへのPRがマージされました。");
+            
+              // マイルストーン内の"fixed", "parent issues"がついたissueを取得する
+              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["fixed", "parent issues"]);
+              console.log("targetIssueDatas: ", targetIssueDatas.length);
+            
+              // 各Issueのラベル更新（"fixed" -> "dev"）
+              await updateIssueLabels(targetIssueDatas, "fixed", "dev");
+              console.log(`${targetIssueDatas.length} 個のIssueのラベルを更新しました。`);
+            
+              return;
+            }
+            
+            
+            // 【STG環境】（マージ先がreleaseブランチの場合）
+            if (prBase === "release") {
+              console.log("releaseブランチへのPRがマージされました。");
+            
+              // マイルストーン内の"dev", "parent issues"がついたissueを取得する
+              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["dev", "parent issues"]);
+            
+              // 各Issueのラベル更新（"dev" -> "stg"）
+              await updateIssueLabels(targetIssueDatas, "dev", "stg");
+              console.log(`${targetIssueDatas.length} 個のIssueのラベルを更新しました。`);
+            
+              return;
+            }
+            
+            // 【PRD環境】（マージ先がmasterブランチの場合）
+            if (prBase === "master") {
+              console.log("masterブランチへのPRがマージされました。");
+            
+              // マイルストーン内の"stg", "parent issues"がついたissueを取得する
+              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["stg", "parent issues"]);
+            
+              // 各Issueのラベル更新（"stg" -> "prd"）
+              await updateIssueLabels(targetIssueDatas, "stg", "prd");
+              console.log(`${targetIssueDatas.length} 個のIssueのラベルを更新しました。`);
+            
+              // 各issueをクローズ（マイルストーン内で、ラベルがprd, parent issuesを含むもの）
+              const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, ["prd", "parent issues"]);
+              if (issuesToClose.length === 0) {
+                console.error("該当するIssueが見つかりませんでした。");
+                return;
+              }
+              for (const issue of issuesToClose) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(issue.number, 10),
+                  state: "closed"
+                });
+                console.log(`Issue #${issue.number} をクローズしました。`);
+              }
+            
+              return;
+            }
+            
+            // マージ先が月対応ブランチなどの場合
+            console.log(`${prBase} へのPRがマージされました。`);
+            // PR本文から、 "Fixed: #" に続くIssueを取得
+            const fixedIssueData = await fetchFixedIssueData(prBody, /Fixed: #(\d+)/);
+            if (!fixedIssueData) {
+              console.error("対応Issueが見つかりません。");
+              return;
+            }
+            console.log(`Issue #${fixedIssueData.data.number} に紐づくPRです。`);
+            
+            // Issue本文から "マージ先: #" に続く親Issueを取得
+            const parentIssueData = await fetchFixedIssueData(fixedIssueData.data.body, /マージ先: #(\d+)/);
+            if (!parentIssueData) {
+              console.error("マージ先が見つかりません。");
+              return;
+            }
+            console.log(`マージ先は Issue #${parentIssueData.data.number} です。`);
+            
+            
+            // 親Issueの本文を取得
+            let parentIssueBody = parentIssueData.data.body;
+            
+            // "## 対応内容" の位置を探す
+            const 対応内容Index = parentIssueBody.indexOf("## 対応内容");
+            
+            if (対応内容Index === -1) {
+              // "## 対応内容" が存在しない場合、新しくセクションを作成
+              parentIssueBody += "\n\n## 対応内容\n";
+            }
+            
+            // PRで対応されたIssueのリンク形式を追加
+            const newEntry = `- #${fixedIssueData.data.number}`;
+            
+            // "## 対応内容" に既にリンクがある場合、それをチェックして同じ行の下に追加
+            const 対応内容Section = parentIssueBody.substring(対応内容Index);
+            if (!対応内容Section.includes(newEntry)) {
+              // "# 対応内容" セクションが見つかった場合、既存の項目の下に追加
+              const 対応内容Lines = 対応内容Section.split("\n");
+              let insertionIndex = 対応内容Lines.findIndex(line => line.startsWith("- #"));
+              if (insertionIndex === -1) {
+                insertionIndex =対応内容Lines.length;
+              }
+              対応内容Lines.splice(insertionIndex + 1, 0, newEntry);
+              parentIssueBody = parentIssueBody.substring(0, 対応内容Index) + 対応内容Lines.join("\n");
+            }
+            
+            // 親Issueの本文を更新
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt(parentIssueData.data.number, 10),
+              body: parentIssueBody,
+            });
+            
+            // 対応Issueのラベルを更新（"ready for review" -> "fixed"）
+            await updateIssueLabels([fixedIssueData.data], "ready for review", "fixed");
+            
+            console.log(`Issue #${parentIssueData.data.number} updated with link to Issue #${fixedIssueData.data.number}.`);

@@ -1,0 +1,116 @@
+# PR作成時に、本文の「Fixed: #」に続けて関連するIssue番号を書くことで、以下処理を行う。
+# - 関連するIssueと同じラベル、マイルストーンを追加
+# - PR作成者を、PRと関連するIssueのAssigneesに追加
+# - PRと関連するIssueに、ready for reviewラベルを追加
+
+name: PR作成時 ラベル、マイルストーン、担当者追加
+
+on:
+  pull_request:
+    types: [ opened, edited ]
+
+jobs:
+  process-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: ラベル、マイルストーン、担当者を設定
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const prBody = pr.body;
+            const prNumber = pr.number;
+            const creator = pr.user.login;
+            const targetBranch = pr.base.ref; 
+            
+            if (!prBody) {
+              console.log("PR body is empty.");
+              return;
+            }
+            
+            // 正規表現で "Fixed: #" に続くIssue番号を抽出
+            const issueMatch = prBody.match(/Fixed: #(\d+)/);
+            if (!issueMatch) {
+              console.log("No issue found in PR body.");
+              return;
+            }
+            
+            const issueNumber = issueMatch[1];
+            
+            // 取得したIssueのラベルとマイルストーンをPRに設定
+            let issueData;
+            try {
+              issueData = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+            } catch (error) {
+              console.error(`Failed to fetch issue #${issueNumber}:`, error);
+              return;
+            }
+            
+            const excludeLabels = ["parent issues", "dev", "stg"];
+            const labelsToAdd = issueData.data.labels
+              .filter(label => !excludeLabels.includes(label.name))
+              .map(label => label.name);
+            const milestoneToAdd = issueData.data.milestone ? issueData.data.milestone.number : null;
+            
+            
+            // PRにIssueと同じラベルとマイルストーンを追加
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: labelsToAdd,
+              });
+            }
+            
+            if (milestoneToAdd) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                milestone: milestoneToAdd,
+              });
+            }
+            
+            
+            // PRのAssigneesに作成者を追加
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              assignees: [creator],
+            });
+            
+            // 取得したIssueにPR作成者をAssigneesとして追加
+            await github.rest.issues.addAssignees({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              assignees: [creator],
+            });
+            
+            
+            // PRとIssueに "ready for review" ラベルを追加
+            const readyToReviewLabel = "ready for review";
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              labels: [readyToReviewLabel],
+            });
+            
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: [readyToReviewLabel],
+            });
