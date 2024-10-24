@@ -99,18 +99,18 @@ jobs:
             
             
             // PRとIssueに "ready for review" ラベルを追加
-            const readyToReviewLabel = "ready for review";
+            const readyForReviewLabel = "ready for review";
             
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              labels: [readyToReviewLabel],
+              labels: [readyForReviewLabel],
             });
             
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber,
-              labels: [readyToReviewLabel],
+              labels: [readyForReviewLabel],
             });

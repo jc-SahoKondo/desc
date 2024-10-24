@@ -36,6 +36,7 @@ jobs:
             const prTitle = pr.title;
             const prBase = pr.base.ref;
             const prMilestone = pr.milestone;
+            const prLabels = pr.labels;
             
             if (!prBody) {
               console.error("PR body is empty.");
@@ -45,6 +46,10 @@ jobs:
             // 特定のマイルストーンとラベルが付与されたissueを取得する
             const fetchIssuesByMilestoneAndLabel = async (milestone, labels) => {
               let targetIssues = [];
+              if (!milestone) {
+                console.error("No milestone found.");
+                return;
+              }
               try {
                 for (const label of labels) {
                   const issue = await github.paginate(github.rest.issues.listForRepo, {
@@ -58,7 +63,7 @@ jobs:
                 }
                 return targetIssues;
               } catch (error) {
-                console.error(`Failed to fetch issue with ${milestone.title} and ${labels.join(",")}:`, error);
+                console.error("Failed to fetch issue: ", error);
                 return;
               }
             }
@@ -105,10 +110,16 @@ jobs:
             // 【DEV環境】（マージ先がdevelopブランチの場合）
             if (prBase === "develop") {
               console.log("developブランチへのPRがマージされました。");
+
+              let targetIssueDatas = [];
             
               // マイルストーン内の"fixed", "parent issues"がついたissueを取得する
-              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["fixed", "parent issues"]);
-              console.log("targetIssueDatas: ", targetIssueDatas.length);
+              targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["fixed", "parent issues"]);
+
+              if (targetIssueDatas.length === 0) {
+                const targetIssueData = await fetchFixedIssueData(prBody, /Fixed: #(\d+)/);
+                targetIssueDatas.push(targetIssuedata);
+              }
             
               // 各Issueのラベル更新（"fixed" -> "dev"）
               await updateIssueLabels(targetIssueDatas, "fixed", "dev");
@@ -121,9 +132,16 @@ jobs:
             // 【STG環境】（マージ先がreleaseブランチの場合）
             if (prBase === "release") {
               console.log("releaseブランチへのPRがマージされました。");
+
+              let targetIssueDatas = [];
             
               // マイルストーン内の"dev", "parent issues"がついたissueを取得する
-              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["dev", "parent issues"]);
+              targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["dev", "parent issues"]);
+
+              if (targetIssueDatas.length === 0) {
+                const targetIssueData = await fetchFixedIssueData(prBody, /Fixed: #(\d+)/);
+                targetIssueDatas.push(targetIssuedata);
+              }
             
               // 各Issueのラベル更新（"dev" -> "stg"）
               await updateIssueLabels(targetIssueDatas, "dev", "stg");
@@ -135,20 +153,43 @@ jobs:
             // 【PRD環境】（マージ先がmasterブランチの場合）
             if (prBase === "master") {
               console.log("masterブランチへのPRがマージされました。");
+
+              let targetIssueDatas = [];
             
               // マイルストーン内の"stg", "parent issues"がついたissueを取得する
-              const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["stg", "parent issues"]);
+              targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, ["stg", "parent issues"]);
+              
+              if (targetIssueDatas.length === 0) {
+                const targetIssueData = await fetchFixedIssueData(prBody, /Fixed: #(\d+)/);
+                targetIssueDatas.push(targetIssuedata);
+              }
             
               // 各Issueのラベル更新（"stg" -> "prd"）
               await updateIssueLabels(targetIssueDatas, "stg", "prd");
-              console.log(`${targetIssueDatas.length} 個のIssueのラベルを更新しました。`);
+              console.log(`${targetIssueDatas.length} 個のIssueのラベルを "prd" に更新しました。`);
             
-              // 各issueをクローズ（マイルストーン内で、ラベルがprd, parent issuesを含むもの）
-              const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, ["prd", "parent issues"]);
-              if (issuesToClose.length === 0) {
-                console.error("該当するIssueが見つかりませんでした。");
-                return;
+              let issuesToClose = [];
+
+              if (!prMilestone) {
+                const issue = await github.paginate(github.rest.issues.listForRepo, {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    state: "open",
+                    labels: "prd"
+                  });
+
+                issuesToClose.push(issue);
+
+              } else {
+                // 各issueをクローズ（マイルストーン内で、ラベルがprd, parent issuesを含むもの）
+                issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, ["prd", "parent issues"]);
+                if (issuesToClose.length === 0) {
+                  console.error("該当するIssueが見つかりませんでした。");
+                  return;
+                }
+              
               }
+              
               for (const issue of issuesToClose) {
                 await github.rest.issues.update({
                   owner: context.repo.owner,
