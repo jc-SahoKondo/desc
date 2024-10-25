@@ -1,8 +1,3 @@
-# PR作成時に、本文の「Fixed: #」に続けて関連するIssue番号を書くことで、以下処理を行う。
-# - 関連するIssueと同じラベル、マイルストーンを追加
-# - PR作成者を、PRと関連するIssueのAssigneesに追加
-# - PRと関連するIssueに、ready for reviewラベルを追加
-
 name: PR作成時 ラベル、マイルストーン、担当者追加
 
 on:
@@ -10,7 +5,7 @@ on:
     types: [ opened, edited ]
 
 jobs:
-  process-pr:
+  set-pr:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,96 +16,92 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // PRとそのデータの取得
             const pr = context.payload.pull_request;
-            const prBody = pr.body;
-            const prNumber = pr.number;
-            const creator = pr.user.login;
-            const targetBranch = pr.base.ref; 
-            
+            if (!pr) throw new Error("Issue payload is not available.");
+
+            const { body: prBody, number: prNumber, user: { login: creator } } = pr;
             if (!prBody) {
-              console.log("PR body is empty.");
-              return;
+                console.log("PR body is empty.");
+                return;
             }
-            
-            // 正規表現で "Fixed: #" に続くIssue番号を抽出
-            const issueMatch = prBody.match(/Fixed: #(\d+)/);
-            if (!issueMatch) {
-              console.log("No issue found in PR body.");
-              return;
-            }
-            
-            const issueNumber = issueMatch[1];
-            
-            // 取得したIssueのラベルとマイルストーンをPRに設定
-            let issueData;
+
+            // PRの本文からIssue番号を抽出
+            const issueNumber = extractIssueNumber(prBody, /Fixed: #(\d+)/);
+            if (!issueNumber) return console.log("No issue found in PR body.");
+
+            // Issueのデータを取得し、PRにラベル、マイルストーン、担当者を設定
             try {
-              issueData = await github.rest.issues.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-              });
+                const issueData = await getIssueData(issueNumber);
+                const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
+                const milestoneToSet = issueData.data.milestone?.number || null;
+
+                if (labelsToSet.length > 0) {
+                    await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, creator);
+                    await updateIssueAssignee(issueNumber, creator);
+                    await addIssueLabels(issueNumber, labelsToSet);
+                    await addIssueLabels(issueNumber, ["ready for review"]);
+                }
             } catch (error) {
-              console.error(`Failed to fetch issue #${issueNumber}:`, error);
-              return;
+                console.error("Failed to update issue and PR:", error);
             }
-            
-            const excludeLabels = ["parent issues", "dev", "stg"];
-            const labelsToAdd = issueData.data.labels
-              .filter(label => !excludeLabels.includes(label.name))
-              .map(label => label.name);
-            const milestoneToAdd = issueData.data.milestone ? issueData.data.milestone.number : null;
-            
-            
-            // PRにIssueと同じラベルとマイルストーンを追加
-            if (labelsToAdd.length > 0) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                labels: labelsToAdd,
-              });
+
+            // 特定の正規表現からIssue番号を抽出する関数
+            function extractIssueNumber(body, regex) {
+                const match = body.match(regex);
+                return match ? match[1] : null;
             }
-            
-            if (milestoneToAdd) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                milestone: milestoneToAdd,
-              });
+
+            // Issueデータを取得する関数
+            async function getIssueData(issueNumber) {
+                try {
+                    return await github.rest.issues.get({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: issueNumber,
+                    });
+                } catch (error) {
+                    throw new Error(`Failed to fetch issue #${issueNumber}: ${error}`);
+                }
             }
-            
-            
-            // PRのAssigneesに作成者を追加
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              assignees: [creator],
-            });
-            
-            // 取得したIssueにPR作成者をAssigneesとして追加
-            await github.rest.issues.addAssignees({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              assignees: [creator],
-            });
-            
-            
-            // PRとIssueに "ready for review" ラベルを追加
-            const readyForReviewLabel = "ready for review";
-            
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              labels: [readyForReviewLabel],
-            });
-            
-            await github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              labels: [readyForReviewLabel],
-            });
+
+            // 特定のラベルを除外して残りを配列で返す関数
+            function filterLabels(labels, excludeLabels) {
+                return labels
+                    .filter(label => !excludeLabels.includes(label.name))
+                    .map(label => label.name);
+            }
+
+            // PRにマイルストーンと担当者を設定する関数
+            async function updatePullRequestMilestoneAssignee(prNumber, milestone, assignee) {
+                console.log(`Updating PR #${prNumber} milestone and assignee`);
+                await github.rest.pulls.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                    milestone: milestone,
+                    assignees: [assignee],
+                });
+            }
+
+            // Issueの担当者を更新する関数
+            async function updateIssueAssignee(issueNumber, assignee) {
+                console.log(`Updating assignee for issue #${issueNumber}`);
+                await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    assignees: [assignee],
+                });
+            }
+
+            // Issueにラベルを追加する関数
+            async function addIssueLabels(issueNumber, labels) {
+                console.log(`Adding labels to issue #${issueNumber}`);
+                await github.rest.issues.addLabels({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueNumber,
+                    labels,
+                });
+            }
