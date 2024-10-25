@@ -1,6 +1,3 @@
-# Issue作成時に、本文の「マージ先: #」に続けてマージ先ブランチに対応するIssue番号を書くことで、以下処理を行う。
-# - 関連するIssueと同じラベル、マイルストーンを追加
-
 name: Issue作成時 ラベル、マイルストーンを追加
 
 on:
@@ -8,7 +5,7 @@ on:
     types: [ opened, edited ]
 
 jobs:
-  set-milestone:
+  set-issues:
     runs-on: ubuntu-latest
 
     steps:
@@ -21,120 +18,65 @@ jobs:
           script: |
             const issue = context.payload.issue;
             if (!issue) {
-              throw new Error("Issue payload is not available.");
+                throw new Error("Issue payload is not available.");
             }
             const body = issue.body;
             if (!body) {
-              throw new Error("Issue body is empty.");
+                throw new Error("Issue body is empty.");
             }
 
-            // issueの作成日に最も近いopenのmilestoneとを取得して更新する
-            const findAndSetMilestoneAndLabels = async (issue) => {
-              const issueCreationDate = new Date(context.payload.issue.created_at);
-
-              // リポジトリ内のマイルストーンを取得
-              const milestones = await github.rest.issues.listMilestones({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                state: 'open'
-              });
-
-              if (milestones.data.length === 0) {
-                console.log("マイルストーンが見つかりません。");
+            // 正規表現を使って本文からissueを抽出。
+            const parentIssueMatch = body.match(/マージ先: #(\d+)/g);
+            if (!fixedIssueMatch) {
+                console.log("No issue found in body.");
                 return;
-              }
+            }
 
-              // 作成日から最も近いマイルストーンを見つける
-              let closestMilestone = null;
-              let closestDiff = Infinity;
+            let parentIssueData;
+            const parentIssueNumber = fixedIssueMatch[1];
 
-              for (const milestone of milestones.data) {
-                const dueDate = new Date(milestone.due_on);
-                const diff = Math.abs(dueDate - issueCreationDate);
+            try {
+                parentIssueData = await github.rest.issues.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: parentIssueNumber,
+                });
 
-                if (diff < closestDiff) {
-                  closestDiff = diff;
-                  closestMilestone = milestone;
-                }
-              }
+            } catch (error) {
+                console.error(`Failed to fetch issue #${parentIssueNumber}:`, error);
+                return;
+            }
 
-              if (closestMilestone) {
-                console.log(`最も近いマイルストーンは: ${closestMilestone.title} で、案件は ${closestMilestone.description} です。`);
-                
-                // 最も近いマイルストーンとマイルストーンの説明に含まれるラベルをIssueに設定
+            // ラベル取得
+            const labelsToSet = parentIssueData.data.labels
+                                .filter(label => !["stg", "dev", "fixed", "parent issue"].includes(label.name))
+                                .map(label => label.name);
+            console.log(`labelsToSet: ${labelsToSet}`);
+
+            // マイルストーン取得
+            const milestoneToSet = parentIssueData.data.milestone.number;
+            console.log(`milestoneToSet: ${linkedIssue.milestone.title}`);
+
+            // issueのラベルとマイルストーンを更新
+            try {
+                console.log(`Update issue #${issue.number}`);
                 await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.issue.number,
-                  milestone: closestMilestone.number,
-                  labels: closestMilestone.description,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issue.number,
+                    labels: Array.from(labelsToSet),
+                    milestone: milestoneToSet,
                 });
-              } else {
-                console.log("適切なマイルストーンが見つかりませんでした。");
-              }
-            }
-            
-            // 正規表現を使って本文からissueリンクを抽出。なければ日付から検索したラベルを付与する。
-            const issueLinks = [...body.matchAll(/マージ先: #(\d+)/g)];
-            if (issueLinks.length === 0) {
-              console.log("No linked issues found in the body.");
-              await findAndSetMilestoneAndLabels(issue);
-              return;
-            }
-            
-            const labelsToAdd = new Set();
-            let milestoneToSet = null;
-            
-            // 各リンクされたissueのラベルとマイルストーンを取得
-            for (const link of issueLinks) {
-              const linkedIssueNumber = link[1];
-              try {
-                const { data: linkedIssue } = await github.rest.issues.get({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: linkedIssueNumber,
+
+                console.log(`Update issue #${parentIssueNumber}`);
+                await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: parentIssueNumber,
+                    labels: Array.from(labelsToSet.push("parent issue")),
                 });
-            
-                // "parent issues"以外のラベルをセットに追加
-                linkedIssue.labels.forEach(label => {
-                  if (label.name !== "parent issues") {
-                    labelsToAdd.add(label.name);
-                  }
-                });
-            
-                // 最初に見つかったmilestoneを設定
-                if (linkedIssue.milestone) {
-                  milestoneToSet = linkedIssue.milestone.number;
-                  console.log(`Found milestone: ${linkedIssue.milestone.title}`);
-                  break;  // 最初に見つかったmilestoneで設定
-                }
-              } catch (error) {
-                console.error(`Failed to fetch linked issue #${linkedIssueNumber}:`, error);
-              }
-            }
-            
-            // 現在のissueにラベルを追加
-            if (labelsToAdd.size > 0) {
-              await github.rest.issues.addLabels({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                labels: Array.from(labelsToAdd),
-              });
-              console.log(`Labels added to issue #${issue.number}.`);
-            } else {
-              console.log("No labels to add.");
-            }
-            
-            // 現在のissueにmilestoneを設定
-            if (milestoneToSet) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                milestone: milestoneToSet,
-              });
-              console.log(`Milestone set to issue #${issue.number}.`);
-            } else {
-              console.log("No milestone found to set.");
+
+            } catch (error) {
+                console.error(`Failed to update issue:`, error);
+                return;
             }
