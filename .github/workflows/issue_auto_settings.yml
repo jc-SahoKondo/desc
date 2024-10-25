@@ -27,11 +27,58 @@ jobs:
             if (!body) {
               throw new Error("Issue body is empty.");
             }
+
+            // issueの作成日に最も近いopenのmilestoneとを取得して更新する
+            const findAndSetMilestoneAndLabels = async (issue) => {
+              const issueCreationDate = new Date(context.payload.issue.created_at);
+
+              // リポジトリ内のマイルストーンを取得
+              const milestones = await github.rest.issues.listMilestones({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open'
+              });
+
+              if (milestones.data.length === 0) {
+                console.log("マイルストーンが見つかりません。");
+                return;
+              }
+
+              // 作成日から最も近いマイルストーンを見つける
+              let closestMilestone = null;
+              let closestDiff = Infinity;
+
+              for (const milestone of milestones.data) {
+                const dueDate = new Date(milestone.due_on);
+                const diff = Math.abs(dueDate - issueCreationDate);
+
+                if (diff < closestDiff) {
+                  closestDiff = diff;
+                  closestMilestone = milestone;
+                }
+              }
+
+              if (closestMilestone) {
+                console.log(`最も近いマイルストーンは: ${closestMilestone.title} で、案件は ${closestMilestone.description} です。`);
+                
+                // 最も近いマイルストーンとマイルストーンの説明に含まれるラベルをIssueに設定
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.issue.number,
+                  milestone: closestMilestone.number,
+                  labels: closestMilestone.description,
+                });
+              } else {
+                console.log("適切なマイルストーンが見つかりませんでした。");
+              }
+            }
             
-            // 正規表現を使って本文からissueリンクを抽出
+            // 正規表現を使って本文からissueリンクを抽出。なければ日付から検索したラベルを付与する。
             const issueLinks = [...body.matchAll(/マージ先: #(\d+)/g)];
             if (issueLinks.length === 0) {
               console.log("No linked issues found in the body.");
+              await findAndSetMilestoneAndLabels(issue);
               return;
             }
             
