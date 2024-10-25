@@ -37,9 +37,10 @@ jobs:
                 const milestoneToSet = issueData.data.milestone?.number || null;
 
                 if (labelsToSet.length > 0) {
-                    await updatePullRequest(prNumber, labelsToSet, milestoneToSet, creator);
+                    await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, creator);
                     await updateIssueAssignee(issueNumber, creator);
-                    await addIssueLabel(issueNumber, ["ready for review"]);
+                    await addIssueLabels(issueNumber, labelsToSet);
+                    await addIssueLabels(issueNumber, ["ready for review"]);
                 }
             } catch (error) {
                 console.error("Failed to update issue and PR:", error);
@@ -71,14 +72,13 @@ jobs:
                     .map(label => label.name);
             }
 
-            // PRにラベル、マイルストーン、担当者を設定する関数
-            async function updatePullRequest(prNumber, labels, milestone, assignee) {
-                console.log(`Updating PR #${prNumber}`);
+            // PRにマイルストーンと担当者を設定する関数
+            async function updatePullRequestMilestoneAssignee(prNumber, milestone, assignee) {
+                console.log(`Updating PR #${prNumber} milestone and assignee`);
                 await github.rest.pulls.update({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     pull_number: prNumber,
-                    labels: Array.from(labels),
                     milestone: milestone,
                     assignees: [assignee],
                 });
@@ -96,7 +96,7 @@ jobs:
             }
 
             // Issueにラベルを追加する関数
-            async function addIssueLabel(issueNumber, labels) {
+            async function addIssueLabels(issueNumber, labels) {
                 console.log(`Adding labels to issue #${issueNumber}`);
                 await github.rest.issues.addLabels({
                     owner: context.repo.owner,
