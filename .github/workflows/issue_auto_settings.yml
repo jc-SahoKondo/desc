@@ -26,7 +26,8 @@ jobs:
             }
 
             // 正規表現を使って本文からissueを抽出。
-            const parentIssueMatch = body.match(/マージ先: #(\d+)/g);
+            const parentIssueMatch = body.match(/マージ先: #(\d+)/);
+
             if (!parentIssueMatch) {
                 console.log("No issue found in body.");
                 return;
@@ -51,6 +52,7 @@ jobs:
             const labelsToSet = parentIssueData.data.labels
                                 .filter(label => !["stg", "dev", "fixed", "parent issue"].includes(label.name))
                                 .map(label => label.name);
+            const labelsForParentIssue = labelsToSet.push("parent issue");
             console.log(`labelsToSet: ${labelsToSet}`);
 
             // マイルストーン取得
@@ -73,7 +75,7 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: parentIssueNumber,
-                    labels: Array.from(labelsToSet.push("parent issue")),
+                    labels: Array.from(labelsForParentIssue),
                 });
 
             } catch (error) {
