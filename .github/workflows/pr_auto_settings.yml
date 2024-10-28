@@ -35,12 +35,15 @@ jobs:
                 const issueData = await getIssueData(issueNumber);
                 const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
                 const milestoneToSet = issueData.data.milestone?.number || null;
+                const isParentIssue = issueData.data.labels.some(label => label.name === "parent issue");
 
                 if (labelsToSet.length > 0) {
                     await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, creator);
-                    await updateIssueAssignee(issueNumber, creator);
-                    await addIssueLabels(issueNumber, labelsToSet);
-                    await addIssueLabels(issueNumber, ["ready for review"]);
+                    await addIssueLabels(prNumber, labelsToSet);
+                    if (!isParentIssue) {
+                        await updateIssueAssignee(issueNumber, creator);
+                        await addIssueLabels(issueNumber, ["ready for review"]);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to update issue and PR:", error);
