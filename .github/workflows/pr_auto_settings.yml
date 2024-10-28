@@ -20,7 +20,7 @@ jobs:
             const pr = context.payload.pull_request;
             if (!pr) throw new Error("Issue payload is not available.");
 
-            const { body: prBody, number: prNumber, user: { login: creator } } = pr;
+            const { body: prBody, number: prNumber, base: { ref: prBase }, user: { login: creator } } = pr;
             if (!prBody) {
                 console.log("PR body is empty.");
                 return;
@@ -36,13 +36,17 @@ jobs:
                 const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
                 const milestoneToSet = issueData.data.milestone?.number || null;
                 const isParentIssue = issueData.data.labels.some(label => label.name === "parent issue");
+                const isHotFix = issueData.data.labels.some(label => label.name === "hotfix");
 
                 if (labelsToSet.length > 0) {
                     await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, creator);
                     await addIssueLabels(prNumber, labelsToSet);
                     if (!isParentIssue) {
                         await updateIssueAssignee(issueNumber, creator);
-                        await addIssueLabels(issueNumber, ["ready for review"]);
+
+                        if (!isHotFix) {
+                            await addIssueLabels(issueNumber, ["ready for review"]);
+                        }
                     }
                 }
             } catch (error) {
