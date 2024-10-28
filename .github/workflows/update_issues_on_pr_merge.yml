@@ -122,7 +122,7 @@ jobs:
                     await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
                 }
 
-                if (closeLabel) {
+                if (closeLabel && !isHotfix) {
                     const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
                     await closeIssues(issuesToClose);
                 }
