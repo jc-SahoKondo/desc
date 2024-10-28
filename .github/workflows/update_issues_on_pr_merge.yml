@@ -116,7 +116,7 @@ jobs:
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
                 if (isHotfix) {
-                    await updateIssueLabels([fixedIssueData], oldLabel, newLabel);
+                    await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
                 } else {
                     const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
                     await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
