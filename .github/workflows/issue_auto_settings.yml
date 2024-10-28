@@ -51,6 +51,7 @@ jobs:
             const labelsToSet = parentIssueData.data.labels
                                 .filter(label => !["stg", "dev", "fixed", "parent issue"].includes(label.name))
                                 .map(label => label.name);
+            const labelsForParentIssue = labelsToSet.push("parent issue");
             console.log(`labelsToSet: ${labelsToSet}`);
 
             // マイルストーン取得
@@ -73,7 +74,7 @@ jobs:
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: parentIssueNumber,
-                    labels: Array.from(labelsToSet.push("parent issue")),
+                    labels: Array.from(labelsForParentIssue),
                 });
 
             } catch (error) {
