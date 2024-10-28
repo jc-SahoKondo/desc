@@ -28,6 +28,7 @@ jobs:
             }
 
             const isHotfix = prLabels.some(label => label.name === "hotfix");
+            if (isHotfix) console.log("hotfixのPRです。");
 
             // 取得条件に基づくIssueをフィルタリングする関数
             const filterIssues = (issues, excludeLabels, includeLabels) => {
@@ -116,15 +117,15 @@ jobs:
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
                 if (isHotfix) {
-                    await updateIssueLabels([fixedIssueData], oldLabel, newLabel);
+                    await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
                 } else {
                     const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
                     await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
-                }
 
-                if (closeLabel) {
-                    const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
-                    await closeIssues(issuesToClose);
+                    if (closeLabel) {
+                        const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
+                        await closeIssues(issuesToClose);
+                    }
                 }
             };
 
