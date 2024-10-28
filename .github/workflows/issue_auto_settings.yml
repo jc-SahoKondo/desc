@@ -27,7 +27,6 @@ jobs:
 
             // 正規表現を使って本文からissueを抽出。
             const parentIssueMatch = body.match(/マージ先: #(\d+)/);
-
             if (!parentIssueMatch) {
                 console.log("No issue found in body.");
                 return;
