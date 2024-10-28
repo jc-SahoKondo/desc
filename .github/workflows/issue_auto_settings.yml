@@ -27,13 +27,13 @@ jobs:
 
             // 正規表現を使って本文からissueを抽出。
             const parentIssueMatch = body.match(/マージ先: #(\d+)/g);
-            if (!fixedIssueMatch) {
+            if (!parentIssueMatch) {
                 console.log("No issue found in body.");
                 return;
             }
 
             let parentIssueData;
-            const parentIssueNumber = fixedIssueMatch[1];
+            const parentIssueNumber = parentIssueMatch[1];
 
             try {
                 parentIssueData = await github.rest.issues.get({
@@ -55,7 +55,7 @@ jobs:
 
             // マイルストーン取得
             const milestoneToSet = parentIssueData.data.milestone.number;
-            console.log(`milestoneToSet: ${linkedIssue.milestone.title}`);
+            console.log(`milestoneToSet: ${parentIssueData.data.milestone.title}`);
 
             // issueのラベルとマイルストーンを更新
             try {
