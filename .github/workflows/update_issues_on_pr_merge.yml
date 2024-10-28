@@ -27,7 +27,7 @@ jobs:
                 return;
             }
 
-            const isPostReleaseBug = prLabels.some(label => label.name === "post-release bug");
+            const isHotfix = prLabels.some(label => label.name === "hotfix");
 
             // 取得条件に基づくIssueをフィルタリングする関数
             const filterIssues = (issues, excludeLabels, includeLabels) => {
@@ -41,7 +41,10 @@ jobs:
 
             // マイルストーンとラベルからIssueを取得する
             const fetchIssuesByMilestoneAndLabel = async (milestone, excludeLabels, includeLabels) => {
-                if (!milestone) return console.error("No milestone found.");
+                if (!milestone) {
+                    console.log("No milestone found.");
+                    return;
+                }
                 try {
                     const issues = await github.paginate(github.rest.issues.listForRepo, {
                         owner: context.repo.owner,
@@ -112,8 +115,12 @@ jobs:
             // PRマージ後の処理
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
-                const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
-                await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                if (isHotfix) {
+                    await updateIssueLabels([fixedIssueData], oldLabel, newLabel);
+                } else {
+                    const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
+                    await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                }
 
                 if (closeLabel) {
                     const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
@@ -121,19 +128,20 @@ jobs:
                 }
             };
 
+            const fixedIssueData = await fetchIssueData(prBody, /Fixed: #(\d+)/);
+
             // 各環境のPRマージ後の処理
             if (prBase === "develop") {
-                await processMerge("develop", isPostReleaseBug ? null : ["post-release bug"], isPostReleaseBug ? ["post-release bug", "fixed"] : ["fixed"], "fixed", "dev");
+                await processMerge("develop", isHotfix ? null : ["hotfix"], isHotfix ? ["hotfix", "fixed"] : ["fixed"], "fixed", "dev");
             } else if (prBase === "release") {
-                await processMerge("release", isPostReleaseBug ? null : ["post-release bug"], isPostReleaseBug ? ["post-release bug", "dev"] : ["dev"], "dev", "stg");
+                await processMerge("release", isHotfix ? null : ["hotfix"], isHotfix ? ["hotfix", "dev"] : ["dev"], "dev", "stg");
             } else if (prBase === "master") {
-                await processMerge("master", isPostReleaseBug ? null : ["post-release bug"], isPostReleaseBug ? ["post-release bug", "stg"] : ["stg"], "stg", "prd", "prd");
+                await processMerge("master", isHotfix ? null : ["hotfix"], isHotfix ? ["hotfix", "stg"] : ["stg"], "stg", "prd", "prd");
             } else {
                 console.log(`${prBase} へのPRがマージされました。`);
             }
 
             // 固有のIssueデータ処理
-            const fixedIssueData = await fetchIssueData(prBody, /Fixed: #(\d+)/);
             if (fixedIssueData) {
                 console.log(`Issue #${fixedIssueData.data.number} に紐づくPRです。`);
                 const parentIssueData = await fetchIssueData(fixedIssueData.data.body, /マージ先: #(\d+)/);
@@ -151,7 +159,7 @@ jobs:
                     }
                     
                     const parentIssueLabels = parentIssueData.data.labels.map(label => label.name);
-                    const isFixed = !await fetchIssuesByMilestoneAndLabel(prMilestone, isPostReleaseBug ? ["parent issue", "fixed"] : ["post-release bug", "parent issue", "fixed"], isPostReleaseBug ? ["post-release bug"] : null).length;
+                    const isFixed = !await fetchIssuesByMilestoneAndLabel(prMilestone, isHotfix ? ["parent issue", "fixed"] : ["hotfix", "parent issue", "fixed"], isHotfix ? ["hotfix"] : null).length;
                     if (isFixed) parentIssueLabels.push("fixed");
 
                     try {
