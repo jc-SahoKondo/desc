@@ -33,16 +33,17 @@ jobs:
             // Issueのデータを取得し、PRにラベル、マイルストーン、担当者を設定
             try {
                 const issueData = await getIssueData(issueNumber);
+                const issueAssignees = issueData.data.assignees?.map(assignee => assignee.login) || [creator];
                 const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
                 const milestoneToSet = issueData.data.milestone?.number || null;
                 const isParentIssue = issueData.data.labels.some(label => label.name === "parent issue");
                 const isHotFix = issueData.data.labels.some(label => label.name === "hotfix");
 
                 if (labelsToSet.length > 0) {
-                    await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, creator);
+                    await updatePullRequestMilestoneAssignee(prNumber, milestoneToSet, issueAssignees);
                     await addIssueLabels(prNumber, labelsToSet);
                     if (!isParentIssue) {
-                        await updateIssueAssignee(issueNumber, creator);
+                        await updateIssueAssignee(issueNumber, issueAssignees);
 
                         if (!isHotFix) {
                             await addIssueLabels(issueNumber, ["ready for review"]);
@@ -80,25 +81,25 @@ jobs:
             }
 
             // PRにマイルストーンと担当者を設定する関数
-            async function updatePullRequestMilestoneAssignee(prNumber, milestone, assignee) {
+            async function updatePullRequestMilestoneAssignee(prNumber, milestone, assignees) {
                 console.log(`Updating PR #${prNumber} milestone and assignee`);
                 await github.rest.issues.update({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: prNumber,
                     milestone: milestone,
-                    assignees: [assignee],
+                    assignees: assignees,
                 });
             }
 
             // Issueの担当者を更新する関数
-            async function updateIssueAssignee(issueNumber, assignee) {
+            async function updateIssueAssignee(issueNumber, assignees) {
                 console.log(`Updating assignee for issue #${issueNumber}`);
                 await github.rest.issues.update({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     issue_number: issueNumber,
-                    assignees: [assignee],
+                    assignees: assignees,
                 });
             }
 
