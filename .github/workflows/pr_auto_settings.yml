@@ -27,15 +27,17 @@ jobs:
             }
 
             // PRの本文からIssue番号を抽出
-            const issueNumber = extractIssueNumber(prBody, /Fixed: #(\d+)/);
+            const issueNumber = extractIssueNumber(prBody, /Issue: #(\d+)/);
             if (!issueNumber) return console.log("No issue found in PR body.");
 
             // Issueのデータを取得し、PRにラベル、マイルストーン、担当者を設定
             try {
                 const issueData = await getIssueData(issueNumber);
-                const issueAssignees = issueData.data.assignees
+                const issueAssignees = (issueData.data.assignees?.length === 0 || true)
                                         ? issueData.data.assignees.map(assignee => assignee.login)
                                         : [creator];
+                console.log("assignees: ", issueData.data.assignees);
+                console.log("issueAssignees: ", issueAssignees);
                 const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
                 const milestoneToSet = issueData.data.milestone?.number || null;
                 const isParentIssue = issueData.data.labels.some(label => label.name === "parent issue");

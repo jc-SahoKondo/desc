@@ -129,7 +129,7 @@ jobs:
                 }
             };
 
-            const fixedIssueData = await fetchIssueData(prBody, /Fixed: #(\d+)/);
+            const fixedIssueData = await fetchIssueData(prBody, /Issue: #(\d+)/);
             if (!fixedIssueData) {
                 console.log("No issue found in body.");
                 return;
