@@ -120,11 +120,19 @@ jobs:
                     await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
                 } else {
                     const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
-                    await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                    if (!targetIssueDatas) {
+                        console.log("No target issues found.");
+                    } else {
+                        await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                    }
 
                     if (closeLabel) {
                         const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
-                        await closeIssues(issuesToClose);
+                        if (!issuesToClose) {
+                            console.log("No closing issues found.");
+                        } else {
+                            await closeIssues(issuesToClose);
+                        }
                     }
                 }
             };
