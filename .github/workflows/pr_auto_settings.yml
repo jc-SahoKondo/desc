@@ -33,7 +33,7 @@ jobs:
             // Issueのデータを取得し、PRにラベル、マイルストーン、担当者を設定
             try {
                 const issueData = await getIssueData(issueNumber);
-                const issueAssignees = (issueData.data.assignees?.length === 0 || true)
+                const issueAssignees = (issueData.data.assignees?.length !== 0 || false)
                                         ? issueData.data.assignees.map(assignee => assignee.login)
                                         : [creator];
                 console.log("assignees: ", issueData.data.assignees);
