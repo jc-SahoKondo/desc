@@ -116,23 +116,22 @@ jobs:
             // PRマージ後の処理
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
-                if (isHotfix) {
+
+                // マイルストーンとラベルから対象のissueのラベルを更新
+                const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
+                if (!targetIssueDatas || isHotfix) {
                     await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
                 } else {
-                    const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
-                    if (!targetIssueDatas) {
-                        console.log("No target issues found.");
-                    } else {
-                        await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
-                    }
+                    await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                }
 
-                    if (closeLabel) {
-                        const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
-                        if (!issuesToClose) {
-                            console.log("No closing issues found.");
-                        } else {
-                            await closeIssues(issuesToClose);
-                        }
+                // masterへのPRの場合はissueをクローズする
+                if (closeLabel) {
+                    const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
+                    if (!issuesToClose || isHotfix) {
+                        await closeIssues([fixedIssueData.data]);
+                    } else {
+                        await closeIssues(issuesToClose);
                     }
                 }
             };
