@@ -33,7 +33,9 @@ jobs:
             // Issueのデータを取得し、PRにラベル、マイルストーン、担当者を設定
             try {
                 const issueData = await getIssueData(issueNumber);
-                const issueAssignees = issueData.data.assignees?.map(assignee => assignee.login) || [creator];
+                const issueAssignees = issueData.data.assignees
+                                        ? issueData.data.assignees.map(assignee => assignee.login)
+                                        : [creator];
                 const labelsToSet = filterLabels(issueData.data.labels, ["parent issue", "dev", "stg", "fixed"]);
                 const milestoneToSet = issueData.data.milestone?.number || null;
                 const isParentIssue = issueData.data.labels.some(label => label.name === "parent issue");
