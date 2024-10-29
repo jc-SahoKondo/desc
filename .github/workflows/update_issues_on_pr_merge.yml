@@ -116,20 +116,27 @@ jobs:
             // PRマージ後の処理
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
-                if (isHotfix) {
+
+                // マイルストーンとラベルから対象のissueのラベルを更新
+                const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
+                if (!targetIssueDatas || isHotfix) {
                     await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
                 } else {
-                    const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
                     await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                }
 
-                    if (closeLabel) {
-                        const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
+                // masterへのPRの場合はissueをクローズする
+                if (closeLabel) {
+                    const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
+                    if (!issuesToClose || isHotfix) {
+                        await closeIssues([fixedIssueData.data]);
+                    } else {
                         await closeIssues(issuesToClose);
                     }
                 }
             };
 
-            const fixedIssueData = await fetchIssueData(prBody, /Fixed: #(\d+)/);
+            const fixedIssueData = await fetchIssueData(prBody, /Issue: #(\d+)/);
             if (!fixedIssueData) {
                 console.log("No issue found in body.");
                 return;
