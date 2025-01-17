@@ -15,18 +15,11 @@ jobs:
 
       - name: Fetch all issues
         id: fetch_issues
-        uses: octokit/request-action@v3
-        with:
-          route: GET /repos/${{ github.repository }}/issues
-          mediaType: '{"previews":["symmetra"]}'
-          headers: '{"Accept":"application/vnd.github.v3+json"}'
-
-      - name: Process issues
-        id: process_issues
         run: |
-          # Parse input
-          issues=${{ steps.fetch_issues.outputs.data }}
-          
+          # Fetch all issues using GitHub API
+          issues=$(curl -s -H "Authorization: token $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/issues?state=open")
+
           # Extract parent issues with 'parent issue' label
           parent_issues=$(echo "$issues" | jq '. | map(select(.labels[].name == "parent issue"))')
 
@@ -69,4 +62,3 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
