@@ -1,7 +1,6 @@
 name: 実装依頼
 description: 通常の機能追加の対応
 title: "[FEATURE] No. "
-type: Feature
 body:
     - type: markdown
       attributes:
