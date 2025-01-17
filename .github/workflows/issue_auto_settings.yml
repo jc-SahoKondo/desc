@@ -23,8 +23,20 @@ jobs:
           # Log the response to debug
           echo "Fetched issues: $issues"
 
+          # Check if any issues were returned
+          if [ -z "$issues" ]; then
+            echo "No issues found in the repository. Exiting."
+            exit 1
+          fi
+
           # Extract parent issues with 'parent issue' label
-          parent_issues=$(echo "$issues" | jq '. | map(select(.labels[].name == "parent issue"))')
+          parent_issues=$(echo "$issues" | jq '. | map(select(.labels[]? .name == "parent issue"))')
+
+          # Check if any parent issue was found
+          if [ "$(echo "$parent_issues" | jq length)" -eq 0 ]; then
+            echo "No parent issue found. Skipping."
+            exit 0
+          fi
 
           # Extract the current issue
           current_issue=${{ github.event.issue }}
