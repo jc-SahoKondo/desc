@@ -1,0 +1,9 @@
+name: 対応集約用
+description: 対応集約用テンプレート
+title: "年月対応"
+labels: ["parent issue"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              対応集約用Issueです
