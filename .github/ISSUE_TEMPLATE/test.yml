@@ -11,7 +11,6 @@ body:
       attributes:
         label: マージ先ブランチ
         description: マージ先の対応集約Issue番号を記載してください
-        placeholder: '#yyyy年MM月対応'
     - type: input
       id: backlog
       attributes:
