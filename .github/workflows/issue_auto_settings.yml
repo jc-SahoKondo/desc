@@ -19,6 +19,9 @@ jobs:
           # Fetch all issues using GitHub API
           issues=$(curl -s -H "Authorization: token $GH_TOKEN" \
             "https://api.github.com/repos/${{ github.repository }}/issues?state=open")
+          
+          # Log the response to debug
+          echo "Fetched issues: $issues"
 
           # Extract parent issues with 'parent issue' label
           parent_issues=$(echo "$issues" | jq '. | map(select(.labels[].name == "parent issue"))')
@@ -43,6 +46,9 @@ jobs:
               # Fetch sub_issues using the GitHub API sub_issues endpoint
               sub_issues=$(curl -s -H "Authorization: token $GH_TOKEN" \
                 "https://api.github.com/repos/${{ github.repository }}/issues/$parent_number/sub_issues")
+
+              # Log sub_issues response
+              echo "Fetched sub_issues: $sub_issues"
 
               for sub_issue in $(echo "$sub_issues" | jq -c '.[]'); do
                 sub_number=$(echo "$sub_issue" | jq '.number')
