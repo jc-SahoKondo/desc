@@ -173,6 +173,7 @@ jobs:
 
             // 固有のIssueデータ処理
             if (fixedIssueDatas) {
+                console.log(fixedIssueDatas[0]);
                 const parentIssueData = await fetchIssueData(fixedIssueDatas[0].data.body, /マージ先: #(\d+)/);
             
                 if (parentIssueData) {
