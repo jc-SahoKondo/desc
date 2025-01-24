@@ -1,0 +1,22 @@
+name: 実装依頼
+description: 通常の機能追加の対応
+title: "[FEATURE] No. "
+body:
+    - type: markdown
+      attributes:
+          value: |
+              新規の対応用のテンプレートです
+    - type: input
+      id: backlog
+      attributes:
+        label: backlogリンク
+        description: 対応するbacklogリンクを記載してください
+      validations:
+        required: true
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: 詳細
+          description: 詳細を記入してください
+      validations:
+          required: false
