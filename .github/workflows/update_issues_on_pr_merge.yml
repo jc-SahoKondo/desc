@@ -173,7 +173,7 @@ jobs:
 
             // 固有のIssueデータ処理
             if (fixedIssueDatas) {
-                console.log(`Issue #${fixedIssueDatas.map(fixedIssueData => fixedIssueData.data.number)} に紐づくPRです。`);
+                console.log(fixedIssueDatas);
                 const parentIssueData = await fetchIssueData(fixedIssueData[0].data.body, /マージ先: #(\d+)/);
             
                 if (parentIssueData) {
