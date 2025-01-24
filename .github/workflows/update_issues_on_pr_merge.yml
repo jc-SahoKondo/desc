@@ -173,8 +173,7 @@ jobs:
 
             // 固有のIssueデータ処理
             if (fixedIssueDatas) {
-                console.log(fixedIssueDatas);
-                const parentIssueData = await fetchIssueData(fixedIssueData[0].data.body, /マージ先: #(\d+)/);
+                const parentIssueData = await fetchIssueData(fixedIssueDatas[0].data.body, /マージ先: #(\d+)/);
             
                 if (parentIssueData) {
                     console.log(`マージ先は Issue #${parentIssueData.data.number} です。`);
