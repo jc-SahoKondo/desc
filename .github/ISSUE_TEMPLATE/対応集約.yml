@@ -1,0 +1,16 @@
+name: 対応集約用
+description: 対応集約用テンプレート
+title: "年月対応"
+labels: ["parent issue"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              対応集約用Issueです
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: 詳細
+          description: 詳細を記入してください
+      validations:
+          required: false

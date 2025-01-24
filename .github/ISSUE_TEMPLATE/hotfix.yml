@@ -1,0 +1,23 @@
+name: hotfix
+description: hotfix用テンプレート
+title: '[HOTFIX] #'
+labels: ['hotfix']
+body:
+    - type: markdown
+      attributes:
+          value: |
+              hotfix用のテンプレートです
+    - type: input
+      id: redmine
+      attributes:
+        label: Redmineリンク
+        description: 対応するRedmineリンクを記載してください
+      validations:
+        required: true
+    - type: textarea
+      id: what-happened
+      attributes:
+          label: 詳細
+          description: 詳細を記入してください
+      validations:
+          required: false
