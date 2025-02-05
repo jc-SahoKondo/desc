@@ -1,0 +1,16 @@
+---
+name: 実装依頼
+about: 機能追加の要望はこちら
+title: '[FEATURE] No.'
+labels: ''
+Type: 'Feature'
+assignees: ''
+
+---
+
+## 概要
+
+<!-- マージ先のリリースIssue番号を記載する↓ -->
+
+- マージ先: #
+- backlog: 
