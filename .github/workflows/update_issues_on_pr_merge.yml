@@ -113,6 +113,24 @@ jobs:
                 }
             };
 
+            const fetchIssueDatas = async (body, matchStr) => {
+                const issueMatchs = body.match(matchStr);
+                if (!issueMatchs) return console.log("No issue found in body.");
+            
+                const issueNumbers = issueMatchs.map(num => num.replace('- Issue: #', ''));
+                try {
+                    for (const issueNumber of issueNumbers) {
+                        return await github.rest.issues.get({
+                            owner: context.repo.owner,
+                            repo: context.repo.repo,
+                            issue_number: issueNumber,
+                        });
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch issue #${issueNumbers}:`, error);
+                }
+            };
+
             // PRマージ後の処理
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
                 console.log(`${baseBranch}ブランチへのPRがマージされました。`);
@@ -120,7 +138,7 @@ jobs:
                 // マイルストーンとラベルから対象のissueのラベルを更新
                 const targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
                 if (!targetIssueDatas || isHotfix) {
-                    await updateIssueLabels([fixedIssueData.data], oldLabel, newLabel);
+                    await updateIssueLabels(fixedIssueDatas.map(fixedIssueData => fixedIssueData.data), oldLabel, newLabel);
                 } else {
                     await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
                 }
@@ -129,15 +147,15 @@ jobs:
                 if (closeLabel) {
                     const issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
                     if (!issuesToClose || isHotfix) {
-                        await closeIssues([fixedIssueData.data]);
+                        await closeIssues(fixedIssueDatas.map(fixedIssueData => fixedIssueData.data));
                     } else {
                         await closeIssues(issuesToClose);
                     }
                 }
             };
 
-            const fixedIssueData = await fetchIssueData(prBody, /Issue: #(\d+)/);
-            if (!fixedIssueData) {
+            const fixedIssueDatas = await fetchIssueDatas(prBody, /- Issue: #(\d+)/g);
+            if (!fixedIssueDatas) {
                 console.log("No issue found in body.");
                 return;
             }
@@ -154,24 +172,28 @@ jobs:
             }
 
             // 固有のIssueデータ処理
-            if (fixedIssueData) {
-                console.log(`Issue #${fixedIssueData.data.number} に紐づくPRです。`);
-                const parentIssueData = await fetchIssueData(fixedIssueData.data.body, /マージ先: #(\d+)/);
+            if (fixedIssueDatas) {
+                const parentIssueData = await fetchIssueData(fixedIssueDatas[0].data.body, /マージ先: #(\d+)/);
             
                 if (parentIssueData) {
                     console.log(`マージ先は Issue #${parentIssueData.data.number} です。`);
                     let parentIssueBody = parentIssueData.data.body;
-                    const newEntry = `- #${fixedIssueData.data.number}`;
+                    const newEntries = fixedIssueDatas.map(fixedIssueData => `- ${fixedIssueData.data.number}`);
                     const contentHeader = "## 対応内容";
 
                     if (!parentIssueBody.includes(contentHeader)) {
-                        parentIssueBody += `\n\n${contentHeader}\n${newEntry}`;
+                        parentIssueBody += `\n\n${contentHeader}`;
+                        for (newEntry of newEntries) {
+                            parentIssueBody += `\n${newEntry}`
+                        }
                     } else if (!parentIssueBody.includes(newEntry)) {
-                        parentIssueBody += `\n${newEntry}`;
+                        for (newEntry of newEntries) {
+                            parentIssueBody += `\n${newEntry}`
+                        }
                     }
-            
-                    const parentIssueLabels = parentIssueData.data.labels.map(label => label.name);
-                    const isFixed = !await fetchIssuesByMilestoneAndLabel(prMilestone, isHotfix ? ["parent issue", "fixed"] : ["hotfix", "parent issue", "fixed"], isHotfix ? ["hotfix"] : null).length;
+
+                    const parentIssueLabels = parentIssueData.data.labels.filter(label => !["stg", "dev", "fixed", "hotfix", "bug"].includes(label.name)).map(label => label.name);
+                    const isFixed = await fetchIssuesByMilestoneAndLabel(prMilestone, isHotfix ? ["parent issue", "fixed"] : ["hotfix", "parent issue", "fixed", "dev", "stg", "prd"], isHotfix ? ["hotfix"] : null).lengh === 0;
                     if (isFixed) parentIssueLabels.push("fixed");
 
                     try {
@@ -186,6 +208,6 @@ jobs:
                         console.error(`Failed to update parent issue #${parentIssueData.data.number}:`, error);
                     }
 
-                    await updateIssueLabels([fixedIssueData.data], "ready for review", "fixed");
+                    await updateIssueLabels(fixedIssueDatas.map(fixedIssueData => fixedIssueData.data), "ready for review", "fixed");
                 }
             }
