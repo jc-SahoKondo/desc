@@ -31,8 +31,8 @@ jobs:
             } = pr;
             
             if (!prBody) {
-                console.log("PR body is empty.");
-                return;
+              console.log("PR body is empty.");
+              return;
             }
 
             // ユーティリティ関数
@@ -44,183 +44,183 @@ jobs:
             
             // 指定された条件に基づきIssueをフィルタリング
             const filterIssues = (issues, excludeLabels, includeLabels) => {
-                return issues.filter(issue => {
-                    const labelNames = issue.labels.map(label => label.name);
-                    const hasExcludeLabel = excludeLabels?.some(label => labelNames.includes(label)) ?? false;
-                    const hasAllIncludeLabels = includeLabels ? includeLabels.every(label => labelNames.includes(label)) : true;
-                    return !hasExcludeLabel && hasAllIncludeLabels;
-                });
+              return issues.filter(issue => {
+                const labelNames = issue.labels.map(label => label.name);
+                const hasExcludeLabel = excludeLabels?.some(label => labelNames.includes(label)) ?? false;
+                const hasAllIncludeLabels = includeLabels ? includeLabels.every(label => labelNames.includes(label)) : true;
+                return !hasExcludeLabel && hasAllIncludeLabels;
+              });
             };
 
             // マイルストーンとラベルからIssueを取得
             const fetchIssuesByMilestoneAndLabel = async (milestone, excludeLabels, includeLabels) => {
-                if (!milestone) {
-                    console.log("No milestone found.");
-                    return [];
-                }
+              if (!milestone) {
+                console.log("No milestone found.");
+                return [];
+              }
             
-                try {
-                    const issues = await github.paginate(github.rest.issues.listForRepo, {
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        milestone: milestone.number,
-                        state: "open",
-                    });
-                    return filterIssues(issues, excludeLabels, includeLabels);
-                } catch (error) {
-                    console.error("Failed to fetch issues:", error);
-                    return [];
-                }
+              try {
+                const issues = await github.paginate(github.rest.issues.listForRepo, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  milestone: milestone.number,
+                  state: "open",
+                });
+                return filterIssues(issues, excludeLabels, includeLabels);
+              } catch (error) {
+                console.error("Failed to fetch issues:", error);
+                return [];
+              }
             };
 
             // Issue番号から詳細情報を取得
             const getIssue = async (issueNumber) => {
-                try {
-                    return await github.rest.issues.get({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: issueNumber,
-                    });
-                } catch (error) {
-                    console.error(`Failed to fetch issue #${issueNumber}:`, error);
-                    return null;
-                }
+              try {
+                return await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                });
+              } catch (error) {
+                console.error(`Failed to fetch issue #${issueNumber}:`, error);
+                return null;
+              }
             };
 
             // テキストからIssue番号を抽出
             const extractIssueNumber = (text, pattern) => {
-                const match = text.match(pattern);
-                return match ? match[1] : null;
+              const match = text.match(pattern);
+              return match ? match[1] : null;
             };
 
             // Issueのラベルを更新
             const updateIssueLabels = async (issueDatas, removeLabel, addLabel) => {
-                for (const issueData of issueDatas) {
-                    const updatedLabels = issueData.labels
-                        .filter(label => label.name !== removeLabel)
-                        .map(label => label.name);
-            
-                    if (addLabel && !updatedLabels.includes(addLabel)) {
-                        updatedLabels.push(addLabel);
-                    }
-            
-                    try {
-                        await github.rest.issues.update({
-                            owner: context.repo.owner,
-                            repo: context.repo.repo,
-                            issue_number: issueData.number,
-                            labels: updatedLabels,
-                        });
-                    } catch (error) {
-                        console.error(`Failed to update issue #${issueData.number}:`, error);
-                    }
+              for (const issueData of issueDatas) {
+                const updatedLabels = issueData.labels
+                    .filter(label => label.name !== removeLabel)
+                    .map(label => label.name);
+        
+                if (addLabel && !updatedLabels.includes(addLabel)) {
+                    updatedLabels.push(addLabel);
+              }
+        
+                try {
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueData.number,
+                    labels: updatedLabels,
+                  });
+                } catch (error) {
+                  console.error(`Failed to update issue #${issueData.number}:`, error);
                 }
+              }
             };
 
             // Issueをクローズ
             const closeIssues = async (issueDatas) => {
-                for (const issueData of issueDatas) {
-                    try {
-                        await github.rest.issues.update({
-                            owner: context.repo.owner,
-                            repo: context.repo.repo,
-                            issue_number: issueData.number,
-                            state: "closed"
-                        });
-                    } catch (error) {
-                        console.error(`Failed to close issue #${issueData.number}:`, error);
-                    }
+              for (const issueData of issueDatas) {
+                try {
+                  await github.rest.issues.update({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: issueData.number,
+                    state: "closed"
+                  });
+                } catch (error) {
+                  console.error(`Failed to close issue #${issueData.number}:`, error);
                 }
+              }
             };
 
             // Issue本文を更新
             const updateIssueBody = async (issueNumber, newBody) => {
-                try {
-                    await github.rest.issues.update({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: issueNumber,
-                        body: newBody,
-                    });
-                } catch (error) {
-                    console.error(`Failed to update issue body #${issueNumber}:`, error);
-                }
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  body: newBody,
+                });
+              } catch (error) {
+                console.error(`Failed to update issue body #${issueNumber}:`, error);
+              }
             };
 
             // ブランチごとの処理を実行
             const processMerge = async (baseBranch, exclude, include, oldLabel, newLabel, closeLabel = null) => {
-                console.log(`${baseBranch}ブランチへのPRがマージされました。`);
+              console.log(`${baseBranch}ブランチへのPRがマージされました。`);
 
-                // 対象Issueの取得
-                let targetIssueDatas;
+              // 対象Issueの取得
+              let targetIssueDatas;
+              if (isHotfix && fixedIssueData) {
+                targetIssueDatas = [fixedIssueData.data];
+              } else {
+                targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
+              }
+
+              // ラベル更新
+              if (targetIssueDatas && targetIssueDatas.length > 0) {
+                await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+              }
+
+              // masterへのPRの場合はissueをクローズする
+              if (closeLabel) {
+                let issuesToClose;
                 if (isHotfix && fixedIssueData) {
-                    targetIssueDatas = [fixedIssueData.data];
+                  issuesToClose = [fixedIssueData.data];
                 } else {
-                    targetIssueDatas = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, include);
+                  issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
                 }
 
-                // ラベル更新
-                if (targetIssueDatas && targetIssueDatas.length > 0) {
-                    await updateIssueLabels(targetIssueDatas, oldLabel, newLabel);
+                if (issuesToClose && issuesToClose.length > 0) {
+                  await closeIssues(issuesToClose);
                 }
-
-                // masterへのPRの場合はissueをクローズする
-                if (closeLabel) {
-                    let issuesToClose;
-                    if (isHotfix && fixedIssueData) {
-                        issuesToClose = [fixedIssueData.data];
-                    } else {
-                        issuesToClose = await fetchIssuesByMilestoneAndLabel(prMilestone, exclude, [closeLabel]);
-                    }
-            
-                    if (issuesToClose && issuesToClose.length > 0) {
-                        await closeIssues(issuesToClose);
-                    }
-                }
+              }
             };
 
             // 親Issueを更新
             const updateParentIssue = async (parentIssueData, childIssueNumber) => {
-                if (!parentIssueData) return;
-            
-                console.log(`マージ先は Issue #${parentIssueData.data.number} です。`);
-                let parentIssueBody = parentIssueData.data.body || '';
-                const newEntry = `- #${childIssueNumber}`;
-                const contentHeader = "## 対応内容";
+              if (!parentIssueData) return;
 
-                // 本文更新
-                if (!parentIssueBody.includes(contentHeader)) {
-                    parentIssueBody += `\n\n${contentHeader}\n${newEntry}`;
-                } else if (!parentIssueBody.includes(newEntry)) {
-                    parentIssueBody += `\n${newEntry}`;
-                }
-            
-                // ラベル更新
-                const labelExclusions = ["stg", "dev", "fixed", "hotfix", "bug"];
-                const parentIssueLabels = parentIssueData.data.labels
-                    .filter(label => !labelExclusions.includes(label.name))
-                    .map(label => label.name);
-            
-                // 全ての子Issueが修正済みかチェック
-                const excludeFilter = isHotfix ? ["parent issue", "fixed"] : ["hotfix", "parent issue", "fixed", "dev", "stg", "prd"];
-                const includeFilter = isHotfix ? ["hotfix"] : null;
-                const pendingIssues = await fetchIssuesByMilestoneAndLabel(prMilestone, excludeFilter, includeFilter);
-            
-                if (pendingIssues.length === 0) {
-                    parentIssueLabels.push("fixed");
-                }
+              console.log(`マージ先は Issue #${parentIssueData.data.number} です。`);
+              let parentIssueBody = parentIssueData.data.body || '';
+              const newEntry = `- #${childIssueNumber}`;
+              const contentHeader = "## 対応内容";
 
-                try {
-                    await github.rest.issues.update({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: parentIssueData.data.number,
-                        labels: Array.from(new Set(parentIssueLabels)),
-                        body: parentIssueBody,
-                    });
-                } catch (error) {
-                    console.error(`Failed to update parent issue #${parentIssueData.data.number}:`, error);
-                }
+              // 本文更新
+              if (!parentIssueBody.includes(contentHeader)) {
+                parentIssueBody += `\n\n${contentHeader}\n${newEntry}`;
+              } else if (!parentIssueBody.includes(newEntry)) {
+                parentIssueBody += `\n${newEntry}`;
+              }
+
+              // ラベル更新
+              const labelExclusions = ["stg", "dev", "fixed", "hotfix", "bug"];
+              const parentIssueLabels = parentIssueData.data.labels
+                  .filter(label => !labelExclusions.includes(label.name))
+                  .map(label => label.name);
+
+              // 全ての子Issueが修正済みかチェック
+              const excludeFilter = isHotfix ? ["parent issue", "fixed"] : ["hotfix", "parent issue", "fixed", "dev", "stg", "prd"];
+              const includeFilter = isHotfix ? ["hotfix"] : null;
+              const pendingIssues = await fetchIssuesByMilestoneAndLabel(prMilestone, excludeFilter, includeFilter);
+
+              if (pendingIssues.length === 0) {
+                parentIssueLabels.push("fixed");
+              }
+
+              try {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parentIssueData.data.number,
+                  labels: Array.from(new Set(parentIssueLabels)),
+                  body: parentIssueBody,
+                });
+              } catch (error) {
+                console.error(`Failed to update parent issue #${parentIssueData.data.number}:`, error);
+              }
             };
 
             // メイン処理
@@ -229,47 +229,47 @@ jobs:
             // PR関連のIssue情報を取得
             const issueNumber = extractIssueNumber(prBody, /Issue: #(\d+)/);
             if (!issueNumber) {
-                console.log("No issue found in body.");
-                return;
+              console.log("No issue found in body.");
+              return;
             }
             
             const fixedIssueData = await getIssue(issueNumber);
             if (!fixedIssueData) {
-                console.log(`Failed to fetch issue #${issueNumber}.`);
-                return;
+              console.log(`Failed to fetch issue #${issueNumber}.`);
+              return;
             }
             
             console.log(`Issue #${fixedIssueData.data.number} に紐づくPRです。`);
 
             // ブランチごとの処理
             if (prBase === "develop") {
-                await processMerge("develop", 
-                    isHotfix ? null : ["hotfix"], 
-                    isHotfix ? ["hotfix", "fixed"] : ["fixed"], 
-                    "fixed", "dev");
+              await processMerge("develop", 
+                  isHotfix ? null : ["hotfix"], 
+                  isHotfix ? ["hotfix", "fixed"] : ["fixed"], 
+                  "fixed", "dev");
             } else if (prBase === "release") {
-                await processMerge("release", 
-                    isHotfix ? null : ["hotfix"], 
-                    isHotfix ? ["hotfix", "dev"] : ["dev"], 
-                    "dev", "stg");
+              await processMerge("release", 
+                  isHotfix ? null : ["hotfix"], 
+                  isHotfix ? ["hotfix", "dev"] : ["dev"], 
+                  "dev", "stg");
             } else if (prBase === "master") {
-                await processMerge("master", 
-                    isHotfix ? null : ["hotfix"], 
-                    isHotfix ? ["hotfix", "stg"] : ["stg"], 
-                    "stg", "prd", "prd");
+              await processMerge("master", 
+                  isHotfix ? null : ["hotfix"], 
+                  isHotfix ? ["hotfix", "stg"] : ["stg"], 
+                  "stg", "prd", "prd");
             } else {
-                console.log(`${prBase} へのPRがマージされました。`);
+              console.log(`${prBase} へのPRがマージされました。`);
             }
 
             // 親Issueの処理
             if (fixedIssueData.data.body) {
-                const parentIssueNumber = extractIssueNumber(fixedIssueData.data.body, /マージ先: #(\d+)/);
-                if (parentIssueNumber) {
-                    const parentIssueData = await getIssue(parentIssueNumber);
-                    if (parentIssueData) {
-                        await updateParentIssue(parentIssueData, fixedIssueData.data.number);
-                    }
+              const parentIssueNumber = extractIssueNumber(fixedIssueData.data.body, /マージ先: #(\d+)/);
+              if (parentIssueNumber) {
+                const parentIssueData = await getIssue(parentIssueNumber);
+                if (parentIssueData) {
+                  await updateParentIssue(parentIssueData, fixedIssueData.data.number);
                 }
+              }
             }
 
             // 子Issueのラベル更新

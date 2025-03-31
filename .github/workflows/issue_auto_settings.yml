@@ -18,44 +18,7 @@ jobs:
               console.log("Issue body is empty or undefined.");
               return;
             }
-            
-            const repoOwner = context.repo.owner;
-            const repoName = context.repo.repo;
-            
-            // 本文から関連Issue番号を取得
-            const relatedIssueMatch = issue.body.match(/関連Issue: #(\d+)/);
-            if (relatedIssueMatch) {
-              const relatedIssueNumber = relatedIssueMatch[1];
 
-              try {
-                // 関連Issueの情報を取得
-                const { data: relatedIssue } = await github.rest.issues.get({
-                    owner: repoOwner,
-                    repo: repoName,
-                    issue_number: relatedIssueNumber,
-                });
-
-                // 既存のラベルを取得
-                const existingLabels = relatedIssue.labels.map(label => label.name);
-
-                // "bug" ラベルがない場合に追加
-                if (!existingLabels.includes("bug")) {
-                  existingLabels.push("bug");
-                  await github.rest.issues.update({
-                      owner: repoOwner,
-                      repo: repoName,
-                      issue_number: relatedIssueNumber,
-                      labels: existingLabels,
-                  });
-                  console.log(`Added "bug" label to issue #${relatedIssueNumber}`);
-                } else {
-                  console.log(`Issue #${relatedIssueNumber} already has "bug" label.`);
-                }
-              } catch (error) {
-                console.error(`Failed to update related issue #${relatedIssueNumber}:`, error);
-              }
-            }
-            
             // 本文から親Issue番号を取得
             const parentIssueMatch = issue.body.match(/マージ先: #(\d+)/);
             if (!parentIssueMatch) {
@@ -72,16 +35,16 @@ jobs:
                   repo: context.repo.repo,
                   issue_number: parentIssueNumber,
               });
-          
+
               // フィルタリングするラベルを定義
               const excludedLabels = new Set(["stg", "dev", "fixed", "parent issue", "hotfix", "bug"]);
               const labelsToSet = parentIssue.labels
                   .map(label => label.name)
                   .filter(label => !excludedLabels.has(label));
-          
+
               // マイルストーンを取得
               const milestoneToSet = parentIssue.milestone?.number || null;
-          
+
               // issueのラベルとマイルストーンを更新
               await github.rest.issues.update({
                   owner: context.repo.owner,
@@ -90,7 +53,7 @@ jobs:
                   labels: labelsToSet,
                   milestone: milestoneToSet,
               });
-          
+              
               console.log(`Updated issue #${issue.number} with labels: ${labelsToSet} and milestone: ${milestoneToSet}`);
 
             } catch (error) {
