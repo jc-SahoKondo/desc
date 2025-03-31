@@ -1,0 +1,49 @@
+name: バグ対応
+description: バグ対応用テンプレート
+title: '[BUG] #'
+labels: ['bug']
+type: 'Bug'
+body:
+    - type: markdown
+      attributes:
+          value: |
+              不具合対応用のテンプレートです
+
+    - type: textarea
+      id: bug_description
+      attributes:
+        label: "バグの概要"
+        description: "バグの内容を簡潔に説明してください"
+        placeholder: "例: ログインボタンを押しても反応しない"
+      validations:
+        required: true
+
+    - type: textarea
+      id: screenshots
+      attributes:
+        label: "スクリーンショット (任意)"
+        description: "問題の発生状況がわかるスクリーンショットがあれば添付してください"
+
+    - type: textarea
+      id: parent_issue_number
+      attributes:
+        label: "マージ先Issue番号"
+        description: マージ先のIssue番号を記入してください"
+        placeholder: "例: #1234-yyyyMM-release"
+      validations:
+        required: true
+
+    - type: textarea
+      id: issue_number
+      attributes:
+        label: "関連するIssue番号 (任意)"
+        description: "関連するIssueがあれば、その番号を記入してください"
+        placeholder: "例: #1234"
+      validations:
+        required: false
+
+    - type: textarea
+      id: additional_info
+      attributes:
+        label: "追加情報 (任意)"
+        description: "その他の情報があれば記入してください"
