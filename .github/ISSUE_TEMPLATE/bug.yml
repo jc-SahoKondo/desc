@@ -28,7 +28,7 @@ body:
       id: parent_issue_number
       attributes:
         label: "マージ先Issue番号"
-        description: マージ先のIssue番号を記入してください"
+        description: "マージ先のIssue番号を記入してください"
         placeholder: "例: #1234-yyyyMM-release"
       validations:
         required: true
