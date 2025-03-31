@@ -1,0 +1,84 @@
+name: リリースPR作成
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch_name:
+        description: 'リリースする対応のブランチ名'
+        required: true
+        default: '1234-yyyyMM-release'
+      release_type:
+        description: 'リリース環境'
+        required: true
+        default: 'DEV環境'
+        options:
+          - 'DEV環境'
+          - 'STG環境'
+          - 'PRD環境'
+        type: choice
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v3
+
+    - name: PRテンプレート取得
+      id: set_body
+      run: |
+        # Templateファイルをリポジトリから読み込む
+        if [[ "${{ github.event.inputs.release_type }}" == "DEV環境" ]]; then
+          template_file=".github/PULL_REQUEST_TEMPLATE/dev.md"
+          base_branch=${{ github.event.inputs.release_branch_name }}
+          head_branch="develop"
+        elif [[ "${{ github.event.inputs.release_type }}" == "STG環境" ]]; then
+          template_file=".github/PULL_REQUEST_TEMPLATE/stg.md"
+          base_branch="develop"
+          head_branch="release"
+        elif [[ "${{ github.event.inputs.release_type }}" == "PRD環境" ]]; then
+          template_file=".github/PULL_REQUEST_TEMPLATE/prd.md"
+          base_branch="release"
+          head_branch="master"
+        else
+          echo "Invalid release type specified."
+          exit 1
+        fi
+        
+        pr_body=$(cat $template_file)
+
+        # Issue番号を取得
+        issue_number=$(echo "${{ github.event.inputs.release_branch_name }}" | sed -E 's/([0-9]+).*/\1/')
+
+        # Issue番号を置換
+        pr_body=$(echo "$pr_body" | sed "s/Issue: \#/Issue: \#$issue_number/")
+        
+        # bodyを環境変数に保存
+        echo "body=$pr_body" >> $GITHUB_ENV
+
+        echo "Head branch: $head_branch"
+        echo "Base branch: $base_branch"
+
+        # ブランチを環境変数に保存
+        echo "head_branch=$head_branch" >> $GITHUB_ENV
+        echo "base_branch=$base_branch" >> $GITHUB_ENV
+
+    - name: 日付を取得
+      id: get_date
+      run: |
+        # 今日の日付をYYYY/MM/DD形式で取得
+        today_date=$(date +'%Y/%m/%d')
+        echo "Today's date: $today_date"
+        
+        # 日付を環境変数に保存
+        echo "date=$today_date" >> $GITHUB_ENV
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v7.0.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        title: '【${{ github.event.inputs.release_type }}】 ${{ env.date }}'
+        body: ${{ env.body }}
+        branch: ${{ env.head_branch }}
+        base: ${{ env.base_branch }}
