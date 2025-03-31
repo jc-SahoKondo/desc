@@ -38,9 +38,11 @@ jobs:
 
               // フィルタリングするラベルを定義
               const excludedLabels = new Set(["stg", "dev", "fixed", "parent issue", "hotfix", "bug"]);
+              const currentIssueLabels = issue.labels.map(label => label.name);
               const labelsToSet = parentIssue.labels
                   .map(label => label.name)
-                  .filter(label => !excludedLabels.has(label));
+                  .filter(label => !excludedLabels.has(label))
+                  .concat(currentIssueLabels);
 
               // マイルストーンを取得
               const milestoneToSet = parentIssue.milestone?.number || null;
@@ -53,7 +55,7 @@ jobs:
                   labels: labelsToSet,
                   milestone: milestoneToSet,
               });
-              
+
               console.log(`Updated issue #${issue.number} with labels: ${labelsToSet} and milestone: ${milestoneToSet}`);
 
             } catch (error) {
