@@ -1,29 +1,72 @@
-name: Issue作成時 ラベル、マイルストーンを追加
+name: Manage Issues
 
 on:
   issues:
-    types: [ opened, edited ]
+    types:
+      - opened
 
 jobs:
-  set-issues:
+  process-issues:
     runs-on: ubuntu-latest
 
     steps:
-      - name: リポジトリをチェックアウト
+      - name: Check out repository
         uses: actions/checkout@v3
 
-      - name: ラベルとマイルストーンを設定
-        uses: actions/github-script@v7
+      - name: Fetch all issues
+        id: fetch_issues
+        uses: octokit/request-action@v3
         with:
-          script: |
-            const issue = context.payload.issue;
-            if (!issue) {
-                throw new Error("Issue payload is not available.");
-            }
-            const body = issue.body;
-            if (!body) {
-                throw new Error("Issue body is empty.");
-            }
+          route: GET /repos/${{ github.repository }}/issues
+          mediaType: '{"previews":["symmetra"]}'
+          headers: '{"Accept":"application/vnd.github.v3+json"}'
 
-            console.log(issue);
-            console.log(issue.body);
+      - name: Process issues
+        id: process_issues
+        run: |
+          # Parse input
+          issues=${{ steps.fetch_issues.outputs.data }}
+          
+          # Extract parent issues with 'parent issue' label
+          parent_issues=$(echo "$issues" | jq '. | map(select(.labels[].name == "parent issue"))')
+
+          # Extract the current issue
+          current_issue=${{ github.event.issue }}
+          current_labels=$(echo "$current_issue" | jq '.labels | map(.name)')
+
+          # Check if 'parent issue' label is missing
+          if ! echo "$current_labels" | jq -e 'contains(["parent issue"])'; then
+            echo "Current issue is not a parent issue."
+
+            # Find related sub_issues of parent issues
+            for parent_issue in $(echo "$parent_issues" | jq -c '.[]'); do
+              parent_number=$(echo "$parent_issue" | jq '.number')
+              parent_milestone=$(echo "$parent_issue" | jq '.milestone | .number')
+              parent_labels=$(echo "$parent_issue" | jq '.labels | map(.name)')
+
+              # Remove "parent issue" label from the parent labels
+              filtered_labels=$(echo "$parent_labels" | jq 'map(select(. != "parent issue"))')
+
+              # Fetch sub_issues using the GitHub API sub_issues endpoint
+              sub_issues=$(curl -s -H "Authorization: token $GH_TOKEN" \
+                "https://api.github.com/repos/${{ github.repository }}/issues/$parent_number/sub_issues")
+
+              for sub_issue in $(echo "$sub_issues" | jq -c '.[]'); do
+                sub_number=$(echo "$sub_issue" | jq '.number')
+                sub_milestone=$(echo "$sub_issue" | jq '.milestone | .number')
+
+                # Update sub_issues without milestone
+                if [ -z "$sub_milestone" ]; then
+                  gh issue edit "$sub_number" --milestone "$parent_milestone"
+                fi
+
+                # Add the filtered labels to the sub_issue
+                for label in $(echo "$filtered_labels" | jq -r '.[]'); do
+                  gh issue edit "$sub_number" --add-label "$label"
+                done
+              done
+            done
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
