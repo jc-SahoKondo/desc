@@ -2,7 +2,6 @@ name: バグ対応
 description: バグ対応用テンプレート
 title: '[BUG] #'
 labels: ['bug']
-type: 'Bug'
 body:
     - type: markdown
       attributes:
