@@ -1,35 +1,42 @@
-name: reviewdog-java
+name: reviewdog-checkstyle
 
 on:
   pull_request:
     paths:
-      - '**.java'
+      - '**/*.java'
 
 jobs:
-  check:
-    name: Check Java Code
+  checkstyle:
+    name: Run Checkstyle with Reviewdog
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '11'
 
-      - name: Install checkstyle
+      - name: Download checkstyle.jar
         run: |
-          curl -LJO https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.23.0/checkstyle-10.23.0-all.jar
-          mv checkstyle-10.23.0-all.jar checkstyle.jar
+          curl -L -o checkstyle.jar https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.23.0/checkstyle-10.23.0-all.jar
 
-      - name: Run checkstyle with reviewdog
-        uses: reviewdog/action-checkstyle@v1
+      - name: Run Checkstyle
+        run: |
+          java -jar checkstyle.jar -c google_checks.xml -f xml $(find . -name "*.java") > checkstyle-result.xml
+
+      - name: Run reviewdog
+        uses: reviewdog/action-reviewdog@v5
         with:
+          name: checkstyle
+          reporter: github-pr-review
+          level: warning
+          filter_mode: file
+          fail_on_error: false
+          reviewdog_flags: -f=checkstyle -name="checkstyle"
+          tool_name: checkstyle
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          checkstyle_config: 'google_checks.xml'
-          tool_name: 'checkstyle'
-          reporter: 'github-pr-review'
-          level: 'warning'
+          input: checkstyle-result.xml
