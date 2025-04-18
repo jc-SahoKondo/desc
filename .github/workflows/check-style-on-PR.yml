@@ -24,19 +24,9 @@ jobs:
         run: |
           curl -L -o checkstyle.jar https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.23.0/checkstyle-10.23.0-all.jar
 
-      - name: Run Checkstyle
+      - name: Run Checkstyle and Reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           java -jar checkstyle.jar -c google_checks.xml -f xml $(find . -name "*.java") > checkstyle-result.xml
-
-      - name: Run reviewdog
-        uses: reviewdog/action-reviewdog@v5
-        with:
-          name: checkstyle
-          reporter: github-pr-review
-          level: warning
-          filter_mode: file
-          fail_on_error: false
-          reviewdog_flags: -f=checkstyle -name="checkstyle"
-          tool_name: checkstyle
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          input: checkstyle-result.xml
+          cat checkstyle-result.xml | reviewdog -f=checkstyle -name="checkstyle" -reporter=github-pr-review -level=warning
