@@ -1,0 +1,35 @@
+name: reviewdog-java
+
+on:
+  pull_request:
+    paths:
+      - '**.java'
+
+jobs:
+  check:
+    name: Check Java Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Install checkstyle
+        run: |
+          curl -LJO https://github.com/checkstyle/checkstyle/releases/download/checkstyle-10.23.0/checkstyle-10.23.0-all.jar
+          mv checkstyle-10.23.0-all.jar checkstyle.jar
+
+      - name: Run checkstyle with reviewdog
+        uses: reviewdog/action-checkstyle@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          checkstyle_config: 'google_checks.xml'
+          tool_name: 'checkstyle'
+          reporter: 'github-pr-review'
+          level: 'warning'
