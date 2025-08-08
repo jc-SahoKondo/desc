@@ -1,0 +1,81 @@
+openapi: 3.0.3
+info:
+  description: 簡易テスト用のOpenAPI仕様
+  title: Simple Test API
+  version: 1.0.0
+servers:
+- url: http://localhost:8080/api
+paths:
+  /hello:
+    get:
+      parameters:
+      - description: "名前（指定すると \"Hello, {name}!\"）"
+        explode: true
+        in: query
+        name: name
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/_hello_get_200_response"
+          description: 正常レスポンス
+      summary: Helloメッセージを返す
+      tags:
+      - greeting
+      x-accepts:
+      - application/json
+      x-tags:
+      - tag: greeting
+  /echo:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/_echo_post_request"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/_echo_post_200_response"
+          description: 正常レスポンス
+      summary: メッセージをそのまま返す
+      tags:
+      - echo
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      x-tags:
+      - tag: echo
+components:
+  schemas:
+    _echo_post_request:
+      properties:
+        text:
+          type: string
+      required:
+      - text
+      type: object
+    _hello_get_200_response:
+      example:
+        message: "Hello, world!"
+      properties:
+        message:
+          example: "Hello, world!"
+          type: string
+      type: object
+    _echo_post_200_response:
+      example:
+        text: 送信されたテキスト
+      properties:
+        text:
+          example: 送信されたテキスト
+          type: string
+      type: object

@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Simple Test API
+  version: 1.0.0
+  description: 簡易テスト用のOpenAPI仕様
+servers:
+  - url: http://localhost:8080/api
+paths:
+  /hello:
+    get:
+      summary: Helloメッセージを返す
+      tags:
+        - greeting
+      parameters:
+        - in: query
+          name: name
+          schema:
+            type: string
+          required: false
+          description: 名前（指定すると "Hello, {name}!"）
+      responses:
+        '200':
+          description: 正常レスポンス
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Hello, world!
+  /echo:
+    post:
+      summary: メッセージをそのまま返す
+      tags:
+        - echo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+                - text
+      responses:
+        '200':
+          description: 正常レスポンス
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                    example: 送信されたテキスト
