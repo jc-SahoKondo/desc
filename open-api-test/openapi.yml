@@ -1,0 +1,90 @@
+openapi: 3.0.3
+info:
+  title: User Management API
+  version: 1.0.0
+  description: ユーザの登録と削除を行うAPI
+servers:
+  - url: http://localhost:8080
+paths:
+  /users:
+    post:
+      summary: ユーザ登録
+      description: 新しいユーザを登録します
+      tags:
+        - Users
+      x-roles:
+        - admin
+        - manager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+      responses:
+        '200':
+          description: ユーザ登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: リクエスト不正
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+  /users/{userId}:
+    delete:
+      summary: ユーザ削除
+      description: 指定したユーザIDのユーザを削除します
+      tags:
+        - Users
+      x-roles:
+        - admin
+      parameters:
+        - name: userId
+          in: path
+          description: 削除対象のユーザID
+          required: true
+          schema:
+            type: string
+            example: "12345"
+      responses:
+        '200':
+          description: ユーザ削除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: ユーザが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+
+components:
+  schemas:
+    ResponseMessage:
+      type: object
+      properties:
+        message:
+          type: string
+          description: 結果メッセージ
+          example: 操作が成功しました
+    UserRequest:
+      type: object
+      required:
+        - username
+        - email
+      properties:
+        username:
+          type: string
+          description: ユーザ名
+          example: yamada
+        email:
+          type: string
+          format: email
+          description: メールアドレス
+          example: yamada@example.com

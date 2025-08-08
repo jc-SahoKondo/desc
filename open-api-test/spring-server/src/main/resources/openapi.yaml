@@ -1,0 +1,105 @@
+openapi: 3.0.3
+info:
+  description: ユーザの登録と削除を行うAPI
+  title: User Management API
+  version: 1.0.0
+servers:
+- url: http://localhost:8080
+paths:
+  /users:
+    post:
+      description: 新しいユーザを登録します
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+          description: ユーザ登録成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+          description: リクエスト不正
+      summary: ユーザ登録
+      tags:
+      - Users
+      x-roles:
+      - admin
+      - manager
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      x-tags:
+      - tag: Users
+  /users/{userId}:
+    delete:
+      description: 指定したユーザIDのユーザを削除します
+      parameters:
+      - description: 削除対象のユーザID
+        explode: false
+        in: path
+        name: userId
+        required: true
+        schema:
+          example: "12345"
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+          description: ユーザ削除成功
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+          description: ユーザが存在しない
+      summary: ユーザ削除
+      tags:
+      - Users
+      x-roles:
+      - admin
+      x-accepts:
+      - application/json
+      x-tags:
+      - tag: Users
+components:
+  schemas:
+    ResponseMessage:
+      example:
+        message: 操作が成功しました
+      properties:
+        message:
+          description: 結果メッセージ
+          example: 操作が成功しました
+          type: string
+      type: object
+    UserRequest:
+      example:
+        email: yamada@example.com
+        username: yamada
+      properties:
+        username:
+          description: ユーザ名
+          example: yamada
+          type: string
+        email:
+          description: メールアドレス
+          example: yamada@example.com
+          format: email
+          type: string
+      required:
+      - email
+      - username
+      type: object

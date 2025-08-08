@@ -1,0 +1,14 @@
+{{#notes}}
+/**
+ * {{notes}}
+ */
+{{/notes}}
+{{#vendorExtensions.x-roles}}
+/**
+ * Required Roles: {{vendorExtensions.x-roles}}
+ */
+{{/vendorExtensions.x-roles}}
+{{#vendorExtensions.x-roles}}
+@PreAuthorize("hasAnyRole({{#vendorExtensions.x-roles}}{{#-first}}'{{.}}'{{/-first}}{{^-first}}, '{{.}}'{{/-first}}{{/vendorExtensions.x-roles}})")
+{{/vendorExtensions.x-roles}}
+{{#returnType}}public ResponseEntity<{{returnType}}>{{/returnType}}{{^returnType}}public ResponseEntity<Void>{{/returnType}} {{nickname}}(
